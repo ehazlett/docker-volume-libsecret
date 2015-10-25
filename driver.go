@@ -12,6 +12,7 @@ import (
 
 type SecretDriver struct {
 	root         string
+	fs           map[string]*FS
 	storeAddr    string
 	storeBackend store.Backend
 	storeOpts    map[string]interface{}
@@ -27,6 +28,7 @@ func NewSecretDriver(root string, backend store.Backend, addr string, opts map[s
 		storeAddr:    addr,
 		storeBackend: backend,
 		storeOpts:    opts,
+		fs:           map[string]*FS{},
 	}, nil
 }
 
@@ -82,6 +84,8 @@ func (d *SecretDriver) Mount(r dkvolume.Request) dkvolume.Response {
 	if err := fs.Mount(r.Name); err != nil {
 		errStr = err.Error()
 	}
+
+	d.fs[r.Name] = fs
 
 	return dkvolume.Response{
 		Mountpoint: filepath.Join(d.root, r.Name),

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -18,7 +19,10 @@ type FS struct {
 	volumeName string
 	conn       *fuse.Conn
 	errChan    chan (error)
+	server     *fs.Server
 	store      store.SecretStore
+	files      map[string]*File
+	tick       *time.Ticker
 }
 
 func NewFS(mountpoint string, storeBackend store.Backend, storeAddr string, storeOpts map[string]interface{}) (*FS, error) {
@@ -41,11 +45,12 @@ func NewFS(mountpoint string, storeBackend store.Backend, storeAddr string, stor
 		mountpoint: mountpoint,
 		errChan:    c,
 		store:      secretStore,
+		files:      map[string]*File{},
 	}, nil
 }
 
 func (f *FS) Mount(volumeName string) error {
-	log.Debugf("setting up fuse: volume=%s containerPath=%s", volumeName)
+	log.Debugf("setting up fuse: volume=%s", volumeName)
 	c, err := fuse.Mount(
 		f.mountpoint,
 		fuse.FSName("libsecret"),
@@ -57,11 +62,14 @@ func (f *FS) Mount(volumeName string) error {
 		return err
 	}
 
+	srv := fs.New(c, nil)
+
+	f.server = srv
 	f.volumeName = volumeName
 	f.conn = c
 
 	go func() {
-		err = fs.Serve(c, f)
+		err = f.server.Serve(f)
 		if err != nil {
 			f.errChan <- err
 		}
@@ -78,17 +86,19 @@ func (f *FS) Mount(volumeName string) error {
 }
 
 func (f *FS) Root() (fs.Node, error) {
-	return &Dir{f, f.volumeName}, nil
+	return &Dir{f, f.server, f.volumeName}, nil
 }
 
 type Dir struct {
 	fs       *FS
+	fuse     *fs.Server
 	basePath string
 }
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Inode = 1
 	a.Mode = os.ModeDir | 0555
+	a.Valid = time.Second * 1
 	return nil
 }
 
@@ -98,15 +108,18 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 	s, err := d.fs.store.Get(secretPath)
 	if err != nil {
-		return &Dir{d.fs, path.Join(d.basePath, name)}, nil
+		return &Dir{d.fs, d.fuse, path.Join(d.basePath, name)}, nil
 	}
 
-	return &File{
+	f := &File{
 		d.fs,
+		d.fuse,
 		name,
 		path.Join(d.basePath, name),
 		s.Value.(string),
-	}, nil
+	}
+
+	return f, nil
 }
 
 func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
@@ -115,6 +128,7 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 type File struct {
 	fs      *FS
+	fuse    *fs.Server
 	name    string
 	path    string
 	content string
@@ -123,9 +137,13 @@ type File struct {
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Debugf("path: %s", f.path)
 
+	f.fs.files[f.path] = f
+
 	a.Inode = 2
 	a.Mode = 0444
 	a.Size = uint64(len(f.content))
+	a.Valid = time.Second * 1
+
 	return nil
 }
 
