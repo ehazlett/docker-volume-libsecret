@@ -15,6 +15,7 @@ import (
 
 type FS struct {
 	mountpoint string
+	volumeName string
 	conn       *fuse.Conn
 	errChan    chan (error)
 	store      store.SecretStore
@@ -56,6 +57,7 @@ func (f *FS) Mount(volumeName string) error {
 		return err
 	}
 
+	f.volumeName = volumeName
 	f.conn = c
 
 	go func() {
@@ -76,7 +78,7 @@ func (f *FS) Mount(volumeName string) error {
 }
 
 func (f *FS) Root() (fs.Node, error) {
-	return &Dir{f, "secret"}, nil
+	return &Dir{f, f.volumeName}, nil
 }
 
 type Dir struct {
