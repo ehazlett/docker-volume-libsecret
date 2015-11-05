@@ -81,9 +81,17 @@ func main() {
 		log.Infof("%s v%s", app.Name, app.Version)
 
 		rootPath := c.String("root")
-		backendName := c.String("backend")
 		backendAddr := c.String("addr")
+		backendName := c.String("backend")
 		opts := getStoreOpts(c)
+
+		if backendAddr == "" {
+			log.Fatal("you must specify a backend address")
+		}
+
+		if backendName == "" {
+			log.Fatal("you must specify a backend type")
+		}
 
 		backend := getBackend(backendName)
 
@@ -109,5 +117,4 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-
 }
