@@ -102,7 +102,9 @@ func main() {
 		}
 
 		h := dkvolume.NewHandler(d)
-		h.ServeUnix("root", "libsecret")
+		if err := h.ServeUnix("root", "libsecret"); err != nil {
+			log.Fatal(err)
+		}
 
 		cs := make(chan os.Signal, 1)
 		signal.Notify(cs, os.Interrupt)
