@@ -108,6 +108,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 	s, err := d.fs.store.Get(secretPath)
 	if err != nil {
+		log.Warn(err)
 		return &Dir{d.fs, d.fuse, path.Join(d.basePath, name)}, nil
 	}
 
