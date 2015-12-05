@@ -21,22 +21,28 @@ listener "tcp" {
 
 Start Vault
 
-```bash
-docker run -p 8200:8200 --name vault -ti -v /path/to/config.hcl:/vault.hcl --rm jess/vault server -config /vault.hcl
+```ash
+docker run \
+    -p 8200:8200 \
+    --name vault \
+    -ti \
+    -v /path/to/config.hcl:/vault.hcl \
+    --rm \
+    jess/vault server -config /vault.hcl
 ```
 
 This will start Vault and listen on port 8200.
 
 Next, use Docker exec to configure Vault:
 
-```bash
+```
 docker exec -ti vault ash
 / # export VAULT_ADDR=http://127.0.0.1:8200
 ```
 
 Then run `vault init` to initialize:
 
-```bash
+```
 / # vault init
 Key 1: e51d7dab67f5f1d6ab396dba1f56cf6f29a626122c15e90ba0cddb2314d5bbe101
 Key 2: ee7486a8be40a8f04c84533674b1e792440f0f5e7bddf03b3e5068ffddf8b73302
@@ -56,13 +62,13 @@ your Vault will remain permanently sealed.
 
 Use the Token and keys to unseal the vault:
 
-```bash
+```
 / # export VAULT_TOKEN=721b2a50-629d-a47c-fe3b-95e766080087
 ```
 
 Then run `vault unseal` 3 times to unlock using the keys above:
 
-```bash
+```
 / # vault unseal
 Key (will be hidden): 
 Sealed: true
@@ -73,7 +79,7 @@ Unseal Progress: 1
 
 Use the `vault` command to add secrets:
 
-```bash
+```
 / # vault write secret/prod/redis value=foopass
 Success! Data written to: secret/prod/redis
 
@@ -89,8 +95,11 @@ Note: due to a limitation by design, you cannot run this plugin in a container
 since the fuse mounts will not be propagated.  This must run on the host.
 Future updates to Docker may remove this limitation.
 
-```bash
-sudo docker-volume-libsecret --addr <vault-address> --backend vault --store-opt token=<vault-token>
+```
+sudo docker-volume-libsecret \
+    --addr <vault-address> \
+    --backend vault \
+    --store-opt token=<vault-token>
 ```
 
 Replace `<vault-address>` and `<vault-token>` with the address and token
@@ -99,7 +108,7 @@ to your Vault instance.
 You can then run a container mounting any part of the path and the container
 will be able to read the secret.
 
-```bash
+```
 docker run -ti --rm --volume-driver libsecret -v secret/prod:/secrets alpine ash
 
 / # cat /secrets/redis
